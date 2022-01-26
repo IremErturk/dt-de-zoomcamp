@@ -1,0 +1,5 @@
+# week 1
+pgcli==1.9.0
+jupyter==1.0.0
+
+# week2
