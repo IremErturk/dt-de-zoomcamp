@@ -28,8 +28,9 @@ Revisit:  Advantages of Parquet
 
 
 4. GCP concepts: 
-Google Cloud Storage Bucket vs BigQuery Dataaset
-Understand GCP storage hierarchy, bucket, blob, etc..
+    4.1 Google Cloud Storage Bucket vs BigQuery Dataaset
+    4.2 Understand GCP storage hierarchy, bucket, blob, etc..
+    4.3 Transfer Service
 
 5. Why Parquet better than the CSV in production level?
     - Compressed, faster
