@@ -2,4 +2,6 @@
 pgcli==1.9.0
 jupyter==1.0.0
 
-# week2
+# week2 - airflow
+apache-airflow-providers-google
+pyarrow
