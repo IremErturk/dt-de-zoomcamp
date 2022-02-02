@@ -128,5 +128,11 @@ with DAG(
             },
         },
     )
+
+    cleanup = BashOperator(
+        task_id="download_dataset",
+        bash_command=f'rm  {PATH_TO_LOCAL_HOME}/{{{{ ti.xcom_pull(key="filename_csv") }}}} {PATH_TO_LOCAL_HOME}/{{{{ ti.xcom_pull(key="filename_parquet") }}}}'
+    )
+
     
-    prepare_filename >> download_dataset >> format_to_parquet >> upload_to_gcs >> bigquery_external_table
+    prepare_filename >> download_dataset >> format_to_parquet >> upload_to_gcs >> bigquery_external_table >> cleanup
