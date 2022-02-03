@@ -1,24 +1,24 @@
 from datetime import datetime
 import os
 import logging
+from xml.dom import ValidationErr
 
 from airflow import DAG
 from airflow.operators.bash import BashOperator
 from airflow.operators.python import PythonOperator
 
 from google.cloud import storage
-from airflow.providers.google.cloud.operators.bigquery import BigQueryCreateExternalTableOperator
 import pyarrow.csv as pv
 import pyarrow.parquet as pq
+from pyarrow.lib import ArrowInvalid
 
 PROJECT_ID = os.environ.get("GCP_PROJECT_ID", 'blissful-scout-339008')
 BUCKET = os.environ.get("GCP_GCS_BUCKET", 'dtc_data_lake_blissful-scout-339008')
-BIGQUERY_DATASET = os.environ.get("BIGQUERY_DATASET", 'trips_data_all')
 
 PATH_TO_LOCAL_HOME = os.environ.get("AIRFLOW_HOME", "/opt/airflow/")
 
 AWS_DATA_PREFIX = "https://nyc-tlc.s3.amazonaws.com/trip+data"
-DATASET_PREFIX = "yellow_tripdata"
+DATASET_PREFIX = "fhv_tripdata"
 
 
 def prepare_filename(logical_date:str,dataset:str=DATASET_PREFIX, **kwargs):
@@ -36,12 +36,10 @@ def prepare_filename(logical_date:str,dataset:str=DATASET_PREFIX, **kwargs):
 def format_to_parquet(src_file):
     if not src_file.endswith('.csv'):
         logging.error("Can only accept source files in CSV format, for the moment")
-        return
-    try:
-        table = pv.read_csv(src_file)
-        pq.write_table(table, src_file.replace('.csv', '.parquet'))
-    except FileNotFoundError as e:
-        logging.warning(f'FileNotFoundError: {src_file} does not exist')
+        raise ValidationErr(f'{src_file} is not in CSV format')
+
+    table = pv.read_csv(src_file)
+    pq.write_table(table, src_file.replace('.csv', '.parquet'))
 
 
 def upload_to_gcs(bucket, object_name, local_file):
@@ -73,8 +71,9 @@ default_args = {
     "retries": 1,
 }
 
+
 with DAG(
-    dag_id="hw_part1",
+    dag_id="hw_part2",
     schedule_interval="@monthly",
     default_args=default_args,
     catchup=True,
@@ -82,57 +81,41 @@ with DAG(
     tags=['dtc-de'],
 ) as dag:
 
-    prepare_filename = PythonOperator(
-        task_id="prepare_filename",
-        python_callable=prepare_filename,
-        provide_context=True,
-        op_kwargs={
-            "logical_date": '{{ ds }}'
-            },
-    )
-    
+    prepare_filename = PythonOperator(task_id="prepare_filename",
+                        python_callable=prepare_filename,
+                        provide_context=True,
+                        op_kwargs={
+                            "logical_date": '{{ ds }}'
+                        },
+                    )
+
     download_dataset = BashOperator(
-        task_id="download_dataset",
-        bash_command=f'curl -sSLf {AWS_DATA_PREFIX}/{{{{ ti.xcom_pull(key="filename_csv") }}}} > {PATH_TO_LOCAL_HOME}/{{{{ ti.xcom_pull(key="filename_csv") }}}}'
+            task_id="download_dataset",
+            bash_command=f'curl -sSLf {AWS_DATA_PREFIX}/{{{{ ti.xcom_pull(key="filename_csv") }}}} > {PATH_TO_LOCAL_HOME}/{{{{ ti.xcom_pull(key="filename_csv") }}}}'
     )
 
     format_to_parquet= PythonOperator(
-        task_id="format_to_parquet",
-        python_callable=format_to_parquet,
-        op_kwargs={
-            "src_file": f'{PATH_TO_LOCAL_HOME}/{{{{ ti.xcom_pull(key="filename_csv") }}}}',
-        },
-    )
+                            task_id="format_to_parquet",
+                            python_callable=format_to_parquet,
+                            op_kwargs={
+                                "src_file": f'{PATH_TO_LOCAL_HOME}/{{{{ ti.xcom_pull(key="filename_csv") }}}}',
+                            },
+                        )
 
     upload_to_gcs = PythonOperator(
-        task_id="upload_to_gcs",
-        python_callable=upload_to_gcs,
-        op_kwargs={
-            "bucket": BUCKET,
-            "object_name": f'raw/{{{{ ti.xcom_pull(key="filename_parquet") }}}}',
-            "local_file": f'{PATH_TO_LOCAL_HOME}/{{{{ ti.xcom_pull(key="filename_parquet") }}}}',
-        },
-    )
-
-    bigquery_external_table = BigQueryCreateExternalTableOperator(
-        task_id="bigquery_external_table",
-        table_resource={
-            "tableReference": {
-                "projectId": PROJECT_ID,
-                "datasetId": BIGQUERY_DATASET,
-                "tableId": "external_table",
+            task_id="upload_to_gcs",
+            python_callable=upload_to_gcs,
+            op_kwargs={
+                "bucket": BUCKET,
+                "object_name": f'raw/{{{{ ti.xcom_pull(key="filename_parquet") }}}}',
+                "local_file": f'{PATH_TO_LOCAL_HOME}/{{{{ ti.xcom_pull(key="filename_parquet") }}}}',
             },
-            "externalDataConfiguration": {
-                "sourceFormat": "PARQUET",
-                "sourceUris":  [f'gs://{BUCKET}/raw/{{{{ti.xcom_pull(key="filename_parquet") }}}}'],
-            },
-        },
-    )
+            dag = dag
+        )
 
     cleanup = BashOperator(
         task_id="cleanup",
         bash_command=f'rm  {PATH_TO_LOCAL_HOME}/{{{{ ti.xcom_pull(key="filename_csv") }}}} {PATH_TO_LOCAL_HOME}/{{{{ ti.xcom_pull(key="filename_parquet") }}}}'
     )
 
-    
-    prepare_filename >> download_dataset >> format_to_parquet >> upload_to_gcs >> bigquery_external_table >> cleanup
+    prepare_filename >> download_dataset >> format_to_parquet >> upload_to_gcs >> cleanup
