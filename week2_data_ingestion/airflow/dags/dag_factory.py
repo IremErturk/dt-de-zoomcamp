@@ -1,7 +1,7 @@
-from ast import List
 from datetime import datetime
 import os
 import logging
+from typing import Any, Dict
 
 from airflow import DAG
 from airflow.operators.bash import BashOperator
@@ -27,13 +27,28 @@ DATASET_PREFIX = "yellow_tripdata" #q1
 DATASET_PREFIX = "fhv_tripdata" # q2
 
 
+# TODO: Read specific yamls and store only yaml names here.
 q1_config = {
+    "default_args" : {
+        "owner": "airflow",
+        "start_date": datetime(2019, 1, 1),
+        "end_date": datetime(2020, 12, 1),
+        "depends_on_past": False,
+        "retries": 1,},
+    "schedule_interval": "@monthly",
     "AWS_DATA_PREFIX": "https://nyc-tlc.s3.amazonaws.com/trip+data",
     "DATASET_PREFIX": "yellow_tripdata",
     "BQ_ENABLED": True
 }
 
 q2_config = {
+    "default_args" : {
+        "owner": "airflow",
+        "start_date": datetime(2019, 1, 1),
+        "end_date": datetime(2020, 12, 1),
+        "depends_on_past": False,
+        "retries": 1,},
+    "schedule_interval": "@monthly",
     "AWS_DATA_PREFIX": "https://nyc-tlc.s3.amazonaws.com/trip+data",
     "DATASET_PREFIX": "fhv_tripdata",
     "BQ_ENABLED": False
@@ -151,31 +166,24 @@ def generate_tasks(dataset:str, enable_bq:bool, **kwargs):
 
     return prepare_filename, cleanup
 
-
-default_args = {
-    "owner": "airflow",
-    "start_date": datetime(2019, 1, 1),
-    "end_date": datetime(2020, 12, 1),
-    "depends_on_past": False,
-    "retries": 1,
-}
-
-
-with DAG(
-    dag_id="factory_tasks_v8",
-    schedule_interval="@monthly",
-    default_args=default_args,
-    catchup=True,
-    max_active_runs=3,
-    tags=['dtc-de-hw'],
-) as dag:
-    for config in configs:
+def generate_dag(config:Dict[str, Any]):
+    with DAG(
+        dag_id="dag_{dataset}".format(dataset=config["DATASET_PREFIX"]),
+        schedule_interval=config["schedule_interval"],
+        default_args=config["default_args"],
+        catchup=True,
+        max_active_runs=3,
+        tags=['dtc-de-hw'],
+    ) as dag:
         generate_tasks(
             dataset=config["DATASET_PREFIX"],
             enable_bq= config["BQ_ENABLED"],
         )
-
-
-
-
+    return dag
+ 
+for config in configs:
+    dataset = config['DATASET_PREFIX']
+    globals()[f'dag_{dataset}'] = generate_dag(
+        config = config
+    )
 
