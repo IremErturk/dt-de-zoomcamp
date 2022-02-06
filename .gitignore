@@ -1,6 +1,6 @@
 .DS_Store
 .idea
-/venv
+**/venv
 *.tfstate
 *.tfstate.*
 **.terraform
@@ -10,4 +10,6 @@
 **.env
 **__pycache__/
 /data-engineering-zoomcamp
+
+**/v3_dag_example.py
 
