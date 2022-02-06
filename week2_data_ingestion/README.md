@@ -33,6 +33,11 @@ Note: In the homework, we need to set `catchup=True` as we are interested to run
 1. Context Manager
 2. Dag Decorator: Any function decorated with `@dag` returns a DAG object. This allows you to parametrize your DAGs and set the parameters when triggering the DAG manually. You can also use the parameters on jinja templates.
 
+# Factory Approach for DAG creation:
+To reduce code dublication and logical similarity between three dag files, I have worked on implementing dag factory approach.
+However, from Airflow Webserver, I have received `raise AirflowTaskTimeout(self.error_message)set` error which refers that creating multiple
+dags from a single dag file cause performance issues. Please check the details from [here](https://airflow.apache.org/docs/apache-airflow/2.2.3/best-practices.html#reducing-dag-complexity)
+
 
 ### Tasks
 Task decorator `@dag.task` captures returned values and sends them to the XCom backend. By default, the returned value is saved as a single XCom value. You can set multiple_outputs key argument to True to unroll dictionaries, lists or tuples into separate XCom values. This can be used with regular operators to create DAGs with Task Flow API.
