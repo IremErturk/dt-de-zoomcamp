@@ -28,9 +28,9 @@ q1_config = {
         "depends_on_past": False,
         "retries": 1,},
     "schedule_interval": "@monthly",
-    "dag_id": "dag_yellow_tripdata_v1",
+    "dag_id": "dag_yellow_tripdata_q1",
     "data_base_url": "https://nyc-tlc.s3.amazonaws.com/trip+data",
-    "dataset": "yellow_tripdata_v0",
+    "dataset": "yellow_tripdata",
     "bq_enabled": True
 }
 
@@ -42,7 +42,7 @@ q2_config = {
         "depends_on_past": False,
         "retries": 1,},
     "schedule_interval": "@monthly",
-    "dag_id": "dag_fhv_tripdata_v1",
+    "dag_id": "dag_fhv_tripdata_q2",
     "data_base_url": "https://nyc-tlc.s3.amazonaws.com/trip+data",
     "dataset": "fhv_tripdata",
     "bq_enabled": False
@@ -55,7 +55,7 @@ q3_config ={
         "depends_on_past": False,
         "retries": 1,},
     "schedule_interval": "@once",
-    "dag_id": "dag_taxi_zone_lookup_v1",
+    "dag_id": "dag_taxi_zone_lookup_q3",
     "data_base_url": "https://nyc-tlc.s3.amazonaws.com/misc",
     "dataset": "taxi+_zone_lookup",
     "bq_enabled": False
