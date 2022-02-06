@@ -69,6 +69,7 @@ x-airflow-common:
     - ./logs:/opt/airflow/logs
     - ./plugins:/opt/airflow/plugins
     - ../../../.google/credentials/:/.google/credentials:ro
+    # TODO:?? ./workflow_utils:/opt/airflow/workflow_utils
 
   user: "${AIRFLOW_UID:-50000}:0"
   depends_on:

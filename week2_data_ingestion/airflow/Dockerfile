@@ -4,6 +4,12 @@ FROM apache/airflow:2.2.3
 
 ENV AIRFLOW_HOME=/opt/airflow
 
+# TODO: for Module Not found error..
+# add persistent python path (for local imports)
+# ENV PYTHONPATH "/home/jovyan/work:${AIRFLOW_HOME}"
+# ENV PYTHONPATH "${PYTHONPATH}:${AIRFLOW_HOME}"
+
+
 USER root
 RUN apt-get update -qq && apt-get install vim -qqq
 # git gcc g++ -qqq
@@ -27,10 +33,10 @@ RUN DOWNLOAD_URL="https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/goo
     && mkdir -p "${GCLOUD_HOME}" \
     && tar xzf "${TMP_DIR}/google-cloud-sdk.tar.gz" -C "${GCLOUD_HOME}" --strip-components=1 \
     && "${GCLOUD_HOME}/install.sh" \
-       --bash-completion=false \
-       --path-update=false \
-       --usage-reporting=false \
-       --quiet \
+    --bash-completion=false \
+    --path-update=false \
+    --usage-reporting=false \
+    --quiet \
     && rm -rf "${TMP_DIR}" \
     && gcloud --version
 
