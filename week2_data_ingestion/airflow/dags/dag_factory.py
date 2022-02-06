@@ -18,14 +18,6 @@ BUCKET = os.environ.get("GCP_GCS_BUCKET", 'dtc_data_lake_blissful-scout-339008')
 BIGQUERY_DATASET = os.environ.get("BIGQUERY_DATASET", 'trips_data_all')
 PATH_TO_LOCAL_HOME = os.environ.get("AIRFLOW_HOME", "/opt/airflow/")
 
-# #q3
-# AWS_DATA_PREFIX = "https://nyc-tlc.s3.amazonaws.com/misc"
-# DATASET_PREFIX = "taxi+_zone_lookup"
-# q1q2
-AWS_DATA_PREFIX = "https://nyc-tlc.s3.amazonaws.com/trip+data"
-DATASET_PREFIX = "yellow_tripdata" #q1
-DATASET_PREFIX = "fhv_tripdata" # q2
-
 
 # TODO: Read specific yamls and store only yaml names here.
 q1_config = {
@@ -36,9 +28,10 @@ q1_config = {
         "depends_on_past": False,
         "retries": 1,},
     "schedule_interval": "@monthly",
-    "AWS_DATA_PREFIX": "https://nyc-tlc.s3.amazonaws.com/trip+data",
-    "DATASET_PREFIX": "yellow_tripdata",
-    "BQ_ENABLED": True
+    "dag_id": "dag_yellow_tripdata_v1",
+    "data_base_url": "https://nyc-tlc.s3.amazonaws.com/trip+data",
+    "dataset": "yellow_tripdata_v0",
+    "bq_enabled": True
 }
 
 q2_config = {
@@ -49,19 +42,37 @@ q2_config = {
         "depends_on_past": False,
         "retries": 1,},
     "schedule_interval": "@monthly",
-    "AWS_DATA_PREFIX": "https://nyc-tlc.s3.amazonaws.com/trip+data",
-    "DATASET_PREFIX": "fhv_tripdata",
-    "BQ_ENABLED": False
+    "dag_id": "dag_fhv_tripdata_v1",
+    "data_base_url": "https://nyc-tlc.s3.amazonaws.com/trip+data",
+    "dataset": "fhv_tripdata",
+    "bq_enabled": False
 }
 
-configs = [q1_config, q2_config]
+q3_config ={
+    "default_args" : {
+        "owner": "airflow",
+        "start_date": datetime(2022, 2, 2),
+        "depends_on_past": False,
+        "retries": 1,},
+    "schedule_interval": "@once",
+    "dag_id": "dag_taxi_zone_lookup_v1",
+    "data_base_url": "https://nyc-tlc.s3.amazonaws.com/misc",
+    "dataset": "taxi+_zone_lookup",
+    "bq_enabled": False
+}
+
+CONFIGS = [q1_config, q2_config, q3_config]
 
 
-def prepare_filename(logical_date:str,dataset:str, **kwargs):
+def prepare_filename(logical_date:str, dataset:str, schedule_interval:str, **kwargs):
 
-    # TODO :try with Jinja    
-    file_identifier = "-".join(logical_date.split('-')[:-1])
-    filename_csv = f"{dataset}_{file_identifier}.csv"
+    if schedule_interval == "@once":
+        filename_csv = f"{dataset}.csv"
+    else:
+        # TODO :try with Jinja    
+        file_identifier = "-".join(logical_date.split('-')[:-1])
+        filename_csv = f"{dataset}_{file_identifier}.csv"
+    
     filename_parquet = filename_csv.replace('.csv', '.parquet')
 
     task_instance = kwargs['ti']
@@ -102,25 +113,26 @@ def upload_to_gcs(bucket, object_name, local_file):
     blob.upload_from_filename(local_file)
 
 
-def generate_tasks(dataset:str, enable_bq:bool, **kwargs):
+def generate_tasks(base_url:str, dataset:str, schedule_interval:str, enable_bq:bool, **kwargs):
 
     prep = PythonOperator(
-        task_id=f'prepare_filename_{dataset}',
+        task_id=f'prepare_filename',
         python_callable=prepare_filename,
         provide_context=True,
         op_kwargs={
             "logical_date": '{{ ds }}',
-            "dataset": dataset
+            "dataset": dataset,
+            "schedule_interval": schedule_interval
             },
     )
 
     download_file = BashOperator(
-        task_id=f'download_dataset_{dataset}',
-        bash_command=f'curl -sSLf {AWS_DATA_PREFIX}/{{{{ ti.xcom_pull(key="filename_csv") }}}} > {PATH_TO_LOCAL_HOME}/{{{{ ti.xcom_pull(key="filename_csv") }}}}'
+        task_id=f'download_dataset',
+        bash_command=f'curl -sSLf {base_url}/{{{{ ti.xcom_pull(key="filename_csv") }}}} > {PATH_TO_LOCAL_HOME}/{{{{ ti.xcom_pull(key="filename_csv") }}}}'
     )
 
     format = PythonOperator(
-        task_id=f'format_to_parquet_{dataset}',
+        task_id=f'format_to_parquet',
         python_callable=format_to_parquet,
         op_kwargs={
             "src_file": f'{PATH_TO_LOCAL_HOME}/{{{{ ti.xcom_pull(key="filename_csv") }}}}',
@@ -128,7 +140,7 @@ def generate_tasks(dataset:str, enable_bq:bool, **kwargs):
     )
 
     upload = PythonOperator(
-        task_id=f'upload_to_gcs_{dataset}',
+        task_id=f'upload_to_gcs',
         python_callable=upload_to_gcs,
         op_kwargs={
             "bucket": BUCKET,
@@ -140,7 +152,7 @@ def generate_tasks(dataset:str, enable_bq:bool, **kwargs):
 
     if enable_bq :
         bigquery_external_table = BigQueryCreateExternalTableOperator(
-        task_id=f'bigquery_external_table_{dataset}',
+        task_id=f'bigquery_external_table',
         table_resource={
             "tableReference": {
                 "projectId": PROJECT_ID,
@@ -155,7 +167,7 @@ def generate_tasks(dataset:str, enable_bq:bool, **kwargs):
     )
 
     cleanup = BashOperator(
-        task_id=f'cleanup_{dataset}',
+        task_id=f'cleanup',
         bash_command=f'rm  {PATH_TO_LOCAL_HOME}/{{{{ ti.xcom_pull(key="filename_csv") }}}} {PATH_TO_LOCAL_HOME}/{{{{ ti.xcom_pull(key="filename_parquet") }}}}'
     )
 
@@ -168,7 +180,7 @@ def generate_tasks(dataset:str, enable_bq:bool, **kwargs):
 
 def generate_dag(config:Dict[str, Any]):
     with DAG(
-        dag_id="dag_{dataset}".format(dataset=config["DATASET_PREFIX"]),
+        dag_id= config["dag_id"],
         schedule_interval=config["schedule_interval"],
         default_args=config["default_args"],
         catchup=True,
@@ -176,13 +188,15 @@ def generate_dag(config:Dict[str, Any]):
         tags=['dtc-de-hw'],
     ) as dag:
         generate_tasks(
-            dataset=config["DATASET_PREFIX"],
-            enable_bq= config["BQ_ENABLED"],
+            base_url = config["data_base_url"],
+            dataset=config["dataset"],
+            schedule_interval= config["schedule_interval"],
+            enable_bq= config["bq_enabled"],
         )
     return dag
  
-for config in configs:
-    dataset = config['DATASET_PREFIX']
+for config in CONFIGS:
+    dataset = config['dataset']
     globals()[f'dag_{dataset}'] = generate_dag(
         config = config
     )
