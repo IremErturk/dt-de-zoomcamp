@@ -38,6 +38,8 @@
 - partition_id and total_rows 
 - Partitions can be querable as well (different than querying tables) -> to check the balance between the partition groups
 - Caution: Number of partition is limited to 4000, therefore consider while partitioning by hourly for instance.
+- Only one partitioning column is allowed, and it has to be either TIMESTAMP/DATE or INTEGER
+- When using Time unit or ingestion time , daily is the default, hourly, monthly and yearly options available
 
 #### Clustering
 - Clustering , query performance + cost improvement
