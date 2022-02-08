@@ -99,6 +99,8 @@ FROM `blissful-scout-339008.trips_data_all.fhv_tripdata_2019_partitioned_cluster
 WHERE DATE(dropoff_datetime) BETWEEN '2019-01-01' AND '2019-03-31'
 AND dispatching_base_num in ("B00987", "B02060", "B02279");
 
+--- Ans: 26558
+
 
 
 -- Q5
