@@ -6,6 +6,7 @@
 *.tfstate.*
 **.terraform
 **.terraform.lock.*
+**.ipynb_checkpoints/
 **google_credentials.json
 **logs/
 **.env
@@ -13,4 +14,5 @@
 /data-engineering-zoomcamp
 
 **/v3_dag_example.py
+
 
