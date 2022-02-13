@@ -10,7 +10,6 @@ from airflow.operators.python import PythonOperator
 from google.cloud import storage
 from airflow.providers.google.cloud.operators.bigquery import BigQueryCreateExternalTableOperator
 import pyarrow.csv as pv
-import pyarrow.parquet as pq
 
 
 PROJECT_ID = os.environ.get("GCP_PROJECT_ID", 'blissful-scout-339008')
@@ -43,23 +42,9 @@ def prepare_filename(logical_date:str, dataset:str, schedule_interval:str, **kwa
         file_identifier = "-".join(logical_date.split('-')[:-1])
         filename_csv = f"{dataset}_{file_identifier}.csv"
     
-    filename_parquet = filename_csv.replace('.csv', '.parquet')
-
     task_instance = kwargs['ti']
     task_instance.xcom_push(key="filename_csv", value=filename_csv)
-    task_instance.xcom_push(key="filename_parquet", value=filename_parquet)
-    logging.info("XCOM variables filename_csv and filename_parquet is successfully pushed..")
-
-
-def format_to_parquet(src_file):
-    if not src_file.endswith('.csv'):
-        logging.error("Can only accept source files in CSV format!!")
-        raise ValueError('Can only accept source files in CSV format!!')
-    try:
-        table = pv.read_csv(src_file)
-        pq.write_table(table, src_file.replace('.csv', '.parquet'))
-    except FileNotFoundError as e:
-        logging.warning(f'FileNotFoundError: {src_file} does not exist')
+    logging.info("XCOM variable filename_csv is successfully pushed..")
 
 
 def upload_to_gcs(bucket, object_name, local_file):
@@ -101,21 +86,13 @@ def generate_tasks(base_url:str, dataset:str, schedule_interval:str, enable_bq:b
         bash_command=f'curl -sSLf {base_url}/{{{{ ti.xcom_pull(key="filename_csv") }}}} > {PATH_TO_LOCAL_HOME}/{{{{ ti.xcom_pull(key="filename_csv") }}}}'
     )
 
-    format = PythonOperator(
-        task_id=f'format_to_parquet',
-        python_callable=format_to_parquet,
-        op_kwargs={
-            "src_file": f'{PATH_TO_LOCAL_HOME}/{{{{ ti.xcom_pull(key="filename_csv") }}}}',
-        },
-    )
-
     upload = PythonOperator(
         task_id=f'upload_to_gcs',
         python_callable=upload_to_gcs,
         op_kwargs={
             "bucket": BUCKET,
-            "object_name": f'raw/{{{{ ti.xcom_pull(key="filename_parquet") }}}}',
-            "local_file": f'{PATH_TO_LOCAL_HOME}/{{{{ ti.xcom_pull(key="filename_parquet") }}}}',
+            "object_name": f'raw/{{{{ ti.xcom_pull(key="filename_csv") }}}}',
+            "local_file": f'{PATH_TO_LOCAL_HOME}/{{{{ ti.xcom_pull(key="filename_csv") }}}}',
         },
     )
 
@@ -130,21 +107,22 @@ def generate_tasks(base_url:str, dataset:str, schedule_interval:str, enable_bq:b
                 "tableId": "external_table",
             },
             "externalDataConfiguration": {
-                "sourceFormat": "PARQUET",
-                "sourceUris":  [f'gs://{BUCKET}/raw/{{{{ti.xcom_pull(key="filename_parquet") }}}}'],
+                "autodetect": "True",
+                "sourceFormat": "CSV",
+                "sourceUris":  [f'gs://{BUCKET}/raw/{{{{ti.xcom_pull(key="filename_csv") }}}}'],
             },
         },
     )
 
     cleanup = BashOperator(
         task_id=f'cleanup',
-        bash_command=f'rm  {PATH_TO_LOCAL_HOME}/{{{{ ti.xcom_pull(key="filename_csv") }}}} {PATH_TO_LOCAL_HOME}/{{{{ ti.xcom_pull(key="filename_parquet") }}}}'
+        bash_command=f'rm  {PATH_TO_LOCAL_HOME}/{{{{ ti.xcom_pull(key="filename_csv") }}}} '
     )
 
     if enable_bq:
-        prep >> download_file >> format >> upload >> bigquery_external_table >> cleanup
+        prep >> download_file >> upload >> bigquery_external_table >> cleanup
     else:
-        prep >> download_file >> format >> upload >> cleanup
+        prep >> download_file >> upload >> cleanup
 
     return prepare_filename, cleanup
 

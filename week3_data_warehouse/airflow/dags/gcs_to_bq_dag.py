@@ -13,7 +13,26 @@ path_to_local_home = os.environ.get("AIRFLOW_HOME", "/opt/airflow/")
 BIGQUERY_DATASET = os.environ.get("BIGQUERY_DATASET", 'trips_data_all')
 
 DATASET = "tripdata"
-COLOUR_RANGE = {'yellow': 'tpep_pickup_datetime', 'green': 'lpep_pickup_datetime'}
+
+COLOUR_RANGE = {
+        "yellow":{
+            "partition_column":"tpep_pickup_datetime",
+            "externalDataConfiguration": {
+                "sourceFormat": "PARQUET",
+                "sourceUris": [f"gs://{BUCKET}/yellow/*"],
+            },
+        },
+        "green":{
+            "partition_column":"lpep_pickup_datetime",
+            "externalDataConfiguration": {
+                "autodetect": "True",
+                "sourceFormat": "CSV",
+                "sourceUris": [f"gs://{BUCKET}/green/*"],
+            },
+        }
+    }
+
+
 INPUT_PART = "raw"
 INPUT_FILETYPE = "parquet"
 
@@ -34,7 +53,12 @@ with DAG(
     tags=['dtc-de'],
 ) as dag:
 
-    for colour, ds_col in COLOUR_RANGE.items():
+    for colour in COLOUR_RANGE.keys():
+
+        ds_col = COLOUR_RANGE[colour][ "partition_column"]
+        externalDataConfiguration = COLOUR_RANGE[colour][ "externalDataConfiguration"]
+
+
         move_files_gcs_task = GCSToGCSOperator(
             task_id=f'move_{colour}_{DATASET}_files_task',
             source_bucket=BUCKET,
@@ -52,10 +76,7 @@ with DAG(
                     "datasetId": BIGQUERY_DATASET,
                     "tableId": f"{colour}_{DATASET}_external_table",
                 },
-                "externalDataConfiguration": {
-                    "sourceFormat": "PARQUET",
-                    "sourceUris": [f"gs://{BUCKET}/{colour}/*"],
-                },
+                "externalDataConfiguration": externalDataConfiguration
             },
         )
 
