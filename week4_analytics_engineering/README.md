@@ -1,10 +1,11 @@
 
+PS: The source code of week4- dbt project creadion can be found [here](https://github.com/IremErturk/dtc-dbt-taxi-rides-ny)
+
 # Analytics Engineering
 - Data Loading
 - Data Storing (cloud data warehouses like Snowflake, BiqQuery, Redshift)
 - *Data Modelling (tools like dbt, Dataform)
 - *Data Presentation (BI tools like Google Data Studio, Looker, Mode or Tableu)
-
 
 ## Data Modelling
 
