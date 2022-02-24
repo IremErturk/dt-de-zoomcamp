@@ -1,1 +1,15 @@
 jupyter==1.0.0
+
+# Week1 - Basic Setup
+pgcli==1.9.0
+
+# Week2 - Data Ingestion
+apache-airflow-providers-google
+pyarrow
+
+# Week3 - Data Warehouse
+pandas==1.4.0
+google-cloud-bigquery==2.32.0
+
+# Week5 - Batch Processing
+pyspark==3.2.1
