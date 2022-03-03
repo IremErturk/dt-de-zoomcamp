@@ -2,11 +2,12 @@
 
 ## Apache Kafka
 
+### Introduction to Apache Kafka
+
 Producer -> Kafka -> Consumer
 
 Kafka is realtime pipeline, ,message broker between producer and consumers
 
----
 **Kafka Broker:** Physical Machine on which Kafka Running 
 
 **Kafka Cluster:** Multiple Kafka brokers, multiple machines working together
@@ -18,6 +19,7 @@ Kafka is realtime pipeline, ,message broker between producer and consumers
 **Topic:** Abstraction of a concept, can be consider as folder such that all messages related to topic is kept there.
 
 ---
+
 ### Basic Workflow
 
 Producer -> Kafka
@@ -34,6 +36,7 @@ Kafka -> Consumer
     - What happens if multiple consumers read from one topic? Each consumer has its topic offset.
 4. Consumer sends acknowledgement to the Kafka by saying I have read xth message.
 
+---
 ### Consumer Groups
 Kafka considers all consumers in a consumer group as one entity.
 For instance C1 on consumer group receive 1-10 messages, 
@@ -47,17 +50,39 @@ Partitioning can be considered to topic level and also the consumer group level.
 
 the best performance/speed achieved by having equal number for topic partitions and consumer number in the consumer group.
 
-
 **How messages assigned in different partitions?** 
 message(Key, Value, Timestamp), based on the key the partition of message is determibed. For instance: HASH(key) % partition_number 
 
 The same key goes to the same partition, therefore the messages with same key are handled with same consumer. Internal Key Table...
 
-
+---
 ### Replication - Fault Tolerance
 
 The messages are replicated to the other Kafka broker.(Leader, Replica)
 
+### Configuration Terms
+
+Topics:
+- retension.ms - time that defines how long the logs stay
+- cleanup.policy - [delete | compact] (compact is not real time and it works with batch jobs in background)
+- partition - scalability count
+- replication 
+
+Consumer:
+- offset - what has been alread read by the consumer
+- consumer.group.id
+-auto.offset.reset - [earliest | latest], when consumer connects for the first time to a topic (what to do with the previous messages created in topic, before consumer configured??)
+
+Producer:
+- acks: [0|1|all]
+    - 0: does not wait for leader or replica broker
+    - 1: waits leader to write message
+    - all: waits leader and replica to write message
 
 
-
+### Kafka with Docker
+- Zookeeper: Since version 2.8, Kafka cluster can be run without ZK
+- Broker
+- Kafka-Tools
+- Schema-Registery
+- Control-Center / enterprise
