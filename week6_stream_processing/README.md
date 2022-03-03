@@ -80,9 +80,17 @@ Producer:
     - all: waits leader and replica to write message
 
 
-### Kafka with Docker
+### TODO: Kafka with Docker
 - Zookeeper: Since version 2.8, Kafka cluster can be run without ZK
 - Broker
 - Kafka-Tools
 - Schema-Registery
 - Control-Center / enterprise
+
+
+### Schema Registry -> Avro
+Kafka also supports ProtoBuffers / Json
+
+Avro is data serialization system as ProtoBuffer.
+For Avro, schema stored seperately from record.
+Therefore the file sizes are smaller compared to alternatives (similiar ideas as parquet)
