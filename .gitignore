@@ -2,18 +2,24 @@
 .idea
 .vscode
 **/venv
+**.env
+**__pycache__/
+**.pytest_cache
+**.ipynb_checkpoints/
+
+# terraform ignores
 *.tfstate
 *.tfstate.*
 **.terraform
 **.terraform.lock.*
-**.ipynb_checkpoints/
-**google_credentials.json
-**logs/
-**.env
-**__pycache__/
-/data-engineering-zoomcamp
 
-**/v3_dag_example.py
+# airflow ignores
+**logs/
+
+# dont push artifacts..
 **/data/
 
+## Cleanup later.... for blogpost
+**/v3_dag_example.py
+**/blog-post code/**
 
