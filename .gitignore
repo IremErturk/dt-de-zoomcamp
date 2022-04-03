@@ -19,7 +19,3 @@
 # dont push artifacts..
 **/data/
 
-## Cleanup later.... for blogpost
-**/v3_dag_example.py
-**/blog-post code/**
-
